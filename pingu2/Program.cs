@@ -66,32 +66,24 @@ namespace SerialProtocol
         private byte[] byteArray = {62, 67, 13, 80, 2, 85, 5, 85, 5, 85, 5, 85, 5, 85, 5, 85, 5, 30};
 
 
-
-        static void Main(string[] args)
+        public static void setAngle(int roll,int pitch,int yaw,ref ControlCommandStructure cCmd)
         {
-            SerialProtocol p = new SerialProtocol();
-            ControlCommandStructure cCmd = new ControlCommandStructure();
-            RealtimeDataStructure rData = new RealtimeDataStructure();
+
+            byte[] byteRead = new byte[100];
 
             cCmd.setMode(MODE_ANGLE);
-            cCmd.setAnglePitch(30);
-            cCmd.setAngleRoll(30);
-            cCmd.setAngleYaw(30);
+            cCmd.setAnglePitch(roll);
+            cCmd.setAngleRoll(pitch);
+            cCmd.setAngleYaw(yaw);
 
+            //default 30 
             cCmd.setSpeedPitch(30);
             cCmd.setSpeedRoll(30);
             cCmd.setSpeedYaw(30);
 
-
-            byte[] byteRead = new byte[100];
-            byte[] byteRead2 = new byte[100];
-            //port.Write(p.byteArray, 0, 18);
-
-
-
             if (sendCommand(CMD_CONTROL, cCmd.getControlStructure()))
             {
-                Console.WriteLine("send a message sucessfully");
+                Console.WriteLine("Done!");
                 port.Read(byteRead, 0, 100);
             }
 
@@ -101,19 +93,57 @@ namespace SerialProtocol
                 return;
             }
 
-            if (sendCommand(CMD_REALTIME_DATA))
+
+        }
+        static void Main(string[] args)
+        {
+            SerialProtocol p = new SerialProtocol();
+            ControlCommandStructure cCmd = new ControlCommandStructure();
+            RealtimeDataStructure rData = new RealtimeDataStructure();
+            String select;
+            byte[] byteRead = new byte[100];
+            int roll, pitch, yaw;
+  
+            while (true)
             {
-                System.Threading.Thread.Sleep(30);
-                port.Read(byteRead2, 0, 100);
-                rData = parseRealTimeData(byteRead2);
-
-                float[] angle = rData.getAngle();
-
-                foreach (byte e in byteRead2)
+                Console.WriteLine("Input what you want");
+                Console.WriteLine("1. Check the gimbal angle");
+                Console.WriteLine("2. Set the gimbal angle");
+                Console.WriteLine("3. Exit");
+                switch (select=Console.ReadLine())
                 {
-                    Console.WriteLine(e);
+                    case "1":
+                    if (sendCommand(CMD_REALTIME_DATA))
+                    {
+                        System.Threading.Thread.Sleep(30);
+                        port.Read(byteRead, 0, 100);
+                        rData = parseRealTimeData(byteRead);
+
+                        float[] angle = rData.getAngle();
+                        Console.WriteLine("Roll: "+rData.getRoll());
+                        Console.WriteLine("Yaw: "+rData.getYaw());
+                        Console.WriteLine("Pitch: "+rData.getPitch());                        
+                    }
+
+                    break;
+                    case "2":
+                    Console.WriteLine("Give the angle value.");
+                    roll = Convert.ToInt32(Console.ReadLine());
+                    pitch = Convert.ToInt32(Console.ReadLine());
+                    yaw = Convert.ToInt32(Console.ReadLine());
+                    setAngle(roll, pitch, yaw, ref cCmd);
+                        
+                    break;
+
+                    case "3":
+                        return;
+                        
+
                 }
             }
+
+
+
 
         }
 
