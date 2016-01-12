@@ -67,13 +67,13 @@ namespace SerialProtocol
 
 
 
-/*      
- * Reads the next word in the data array
- * 
- * @param data
- *            complete data array [header+body]
- * @return read bytes or -1 on failure
- */
+        /*      
+         * Reads the next word in the data array
+         * 
+         * @param data
+         *            complete data array [header+body]
+         * @return read bytes or -1 on failure
+         */
         protected static int readWord(byte[] data)
         {
             if (data.Length >= readPosition + 2)
@@ -169,6 +169,7 @@ namespace SerialProtocol
         {
             SerialProtocol p = new SerialProtocol();
             ControlCommandStructure cCmd = new ControlCommandStructure();
+            RealtimeDataStructure rData = new RealtimeDataStructure();
 
             cCmd.setMode(MODE_ANGLE);
             cCmd.setAnglePitch(30);
@@ -181,23 +182,34 @@ namespace SerialProtocol
 
 
             byte[] byteRead = new byte[100];
-            
+
             //port.Write(p.byteArray, 0, 18);
-            
 
-            
-            if (sendCommand(CMD_CONTROL,cCmd.getControlStructure()))
+            /*
+               
+               if (sendCommand(CMD_CONTROL,cCmd.getControlStructure()))
+               {
+                   Console.WriteLine("send a message sucessfully");
+                   port.Read(byteRead, 0, 100);
+               }
+
+               else
+               {
+                   Console.WriteLine("Can't send command a message");
+                   return;
+               }*/
+            if(sendCommand(CMD_REALTIME_DATA))
             {
-                Console.WriteLine("send a message sucessfully");
                 port.Read(byteRead, 0, 100);
+                rData = parseRealTimeData(byteRead);
+                float bat = rData.getBatteryValue();
+                float[] angle = rData.getAngle();
+                foreach(float e in angle)
+                {                    
+                    Console.WriteLine(bat);
+                }
             }
 
-            else
-            {
-                Console.WriteLine("Can't send command a message");
-                return;
-            }
-            
         }
 
         public byte[] getByteArray()
@@ -293,9 +305,11 @@ namespace SerialProtocol
         }
 
         //Basic wrapper function without bodydata
-        public static void sendCommand(byte commandID)
+        public static bool sendCommand(byte commandID)
         {
-            sendCommand(commandID, new byte[0]);
+            if (sendCommand(commandID, new byte[0]))
+                return true;
+            else return false;
         }
 
         public static RealtimeDataStructure getRealtimeDataStructure()
@@ -371,9 +385,6 @@ namespace SerialProtocol
             readPosition = BODY_DATA_POS;
             return getRealtimeDataStructure();
         }
-
-
-
     }
 
 
