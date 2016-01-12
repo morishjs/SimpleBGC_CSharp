@@ -11,6 +11,7 @@ using System.IO.Ports;
 namespace SerialProtocol
 {
     
+    
     class SerialProtocol
     {
 
@@ -57,9 +58,112 @@ namespace SerialProtocol
         protected static int DATA_SIZE_POS = 2;
         protected static int HEADER_CHECKSUM_POS = 3;
         protected static int BODY_DATA_POS = 4;
+        protected static int readPosition = BODY_DATA_POS;
+
+        protected static RealtimeDataStructure rtD = new RealtimeDataStructure();
 
         private static SerialPort port = new SerialPort("COM4",115200);
         private byte[] byteArray = {62, 67, 13, 80, 2, 85, 5, 85, 5, 85, 5, 85, 5, 85, 5, 85, 5, 30};
+
+
+
+/*      
+ * Reads the next word in the data array
+ * 
+ * @param data
+ *            complete data array [header+body]
+ * @return read bytes or -1 on failure
+ */
+        protected static int readWord(byte[] data)
+        {
+            if (data.Length >= readPosition + 2)
+            {
+                return (data[(readPosition++)] & 0xFF)
+                        + (data[(readPosition++)] << 8);
+            }
+            return -1;
+        }
+
+        /**
+         * Reads the next unsigned word in the data array
+         * 
+         * @param data
+         *            complete data array [header+body]
+         * @return read bytes or -1 on failure
+         */
+        protected static int readWordUnsigned(byte[] data)
+        {
+            if (data.Length >= readPosition + 2)
+            {
+                return (data[(readPosition++)] & 0xFF)
+                        + ((data[(readPosition++)] & 0xFF) << 8);
+            }
+            return -1;
+
+        }
+
+        /**
+         * Reads the next byte in the data array
+         * 
+         * @param data
+         *            complete data array [header+body]
+         * @return read byte or -1 on failure
+         */
+        protected static int readByte(byte[] data)
+        {
+            if (readPosition < data.Length)
+            {
+                return data[(readPosition++)] & 0xFF;
+            }
+            return -1;
+
+        }
+
+        /**
+         * Reads the next signed byte in the data array
+         * 
+         * @param data
+         *            complete data array [header+body]
+         * @return read byte or -1 on failure
+         * @throws IOException
+         */
+        protected int readByteSigned(byte[] data)
+        {
+
+            if (readPosition < data.Length)
+            {
+                return data[(readPosition++)];
+            }
+
+            return -1;
+
+        }
+
+        protected bool readBoolean(byte[] data)
+        {
+            return readByte(data) == 1;
+        }
+
+        /**
+         * Returns a (readable) String representation of the byte array
+         * 
+         * @param data
+         *            complete data array [header+body]
+         * @return bytes as a String
+         */
+        static String byteArrayToString(byte[] data)
+        {
+            StringBuilder sb = new StringBuilder();
+            foreach(byte b in data)
+            {
+
+                sb.Append(Convert.ToString(b));
+            }
+            return sb.ToString();
+        }
+
+
+
 
         static void Main(string[] args)
         {
@@ -193,6 +297,83 @@ namespace SerialProtocol
         {
             sendCommand(commandID, new byte[0]);
         }
+
+        public static RealtimeDataStructure getRealtimeDataStructure()
+        {
+            return rtD;
+        }
+
+        //Read data
+        protected static RealtimeDataStructure parseRealTimeData(byte[] data)
+        {
+
+            for (int i = 0; i < 3; i++)
+            {
+                getRealtimeDataStructure().setAcc(readWord(data), i);
+                getRealtimeDataStructure().setGyro(readWord(data), i);
+            }
+
+            for (int i = 0; i < getRealtimeDataStructure().getDebug().Length; i++)
+            {
+                getRealtimeDataStructure().setDebug(readWord(data), i);
+            }
+            for (int i = 0; i < getRealtimeDataStructure().getRcData().Length; i++)
+            {
+                getRealtimeDataStructure().setRcData(readWord(data), i);
+            }
+            if (BOARD_VERSION_3)
+            {
+
+                for (int i = 0; i < 3; i++)
+                {
+                    getRealtimeDataStructure().setAngle(
+                            (readWord(data) * ANGLE_TO_DEGREE), i);
+
+                }
+                for (int i = 0; i < 3; i++)
+                {
+                    getRealtimeDataStructure().setFrameAngle(
+                            (readWord(data) * ANGLE_TO_DEGREE), i);
+                }
+                for (int i = 0; i < 3; i++)
+                    getRealtimeDataStructure().setRc_angle(
+                            (readWord(data) * ANGLE_TO_DEGREE), i);
+            }
+            else {
+
+                for (int i = 0; i < 3; i++)
+                {
+                    getRealtimeDataStructure().setAngle(
+                            (readWord(data) * ANGLE_TO_DEGREE), i);
+                }
+                for (int i = 0; i < 3; i++)
+                {
+                    getRealtimeDataStructure().setRc_angle(
+                            (readWord(data) * ANGLE_TO_DEGREE), i);
+                }
+            }
+
+            getRealtimeDataStructure().setCycleTime(readWord(data));
+            getRealtimeDataStructure().setI2cErrorCount(readWordUnsigned(data));
+            getRealtimeDataStructure().setErrorCode(readByte(data));
+            getRealtimeDataStructure().setBatteryValue(readWordUnsigned(data));
+            getRealtimeDataStructure().setPowered(readByte(data) > 0);
+            if (BOARD_VERSION_3)
+            {
+                getRealtimeDataStructure().setCurrentIMU(readByte(data));
+            }
+            getRealtimeDataStructure().setCurrentProfile(readByte(data));
+            for (int i = 0; i < 3; i++)
+            {
+                getRealtimeDataStructure().setPower(readByte(data), i);
+            }
+            // Reset position to first Data-Byte
+            readPosition = BODY_DATA_POS;
+            return getRealtimeDataStructure();
+        }
+
+
+
     }
 
 
@@ -351,5 +532,236 @@ namespace SerialProtocol
             angleYaw = a;
         }
     }
+    public class RealtimeDataStructure
+    {
 
+        private static RealtimeDataStructure realtimeData = new RealtimeDataStructure();
+        private static int ROLL_CHANNEL = 0;
+        private static int PITCH_CHANNEL = 1;
+        private static int YAW_CHANNEL = 2;
+        private static int RC_UNDEF = -8500;
+
+        private int[] acc = new int[3];// {Roll, Pitch, Yaw}
+        private int[] gyro = new int[3];// {Roll, Pitch, Yaw}
+        private int[] debug = new int[4];
+        private int[] rcData = { RC_UNDEF, RC_UNDEF, RC_UNDEF, RC_UNDEF, RC_UNDEF, RC_UNDEF };
+        private float[] angle = new float[3]; // {Roll, Pitch, Yaw} - Actual angle
+                                              // in degrees
+        private float[] frameAngle = new float[3]; // {Roll, Pitch, Yaw}
+        private float[] rc_angle = new float[3];// {Roll, Pitch, Yaw}
+        private int cycleTime;
+        private int i2cErrorCount;
+        private int errorCode;
+        private float batteryValue;        
+        private int currentProfile = 0;
+        private int currentIMU = 1;
+        private int[] power = new int[3];
+        private bool isPowered;
+
+        public static RealtimeDataStructure getRealtimeData()
+        {
+            return realtimeData;
+        }
+
+        public static void setCurrentRealtimeData(RealtimeDataStructure curRealtimeData)
+        {
+            realtimeData = curRealtimeData;
+        }
+
+        public int[] getAcc()
+        {
+            return acc;
+        }
+
+        public void setAcc(int acc, int position)
+        {
+
+            if (position < 3)
+                this.acc[position] = acc;
+        }
+
+        public int[] getGyro()
+        {
+            return gyro;
+        }
+
+        public void setGyro(int gyro, int position)
+        {
+            this.gyro[position] = gyro;
+        }
+
+        public int[] getDebug()
+        {
+            return debug;
+        }
+
+        public void setDebug(int debug, int position)
+        {
+            if (position < 4)
+                this.debug[position] = debug;
+        }
+
+        public int[] getRcData()
+        {
+            return rcData;
+        }
+
+        public void setRcData(int rc, int position)
+        {
+            if (position < 3)
+                this.rcData[position] = rc;
+        }
+
+        public float[] getAngle()
+        {
+            return angle;
+        }
+
+        public float getRoll()
+        {
+            return angle[ROLL_CHANNEL];
+        }
+
+        public void setRoll(float f)
+        {
+            this.angle[ROLL_CHANNEL] = f;
+        }
+
+        public float getPitch()
+        {
+            return angle[PITCH_CHANNEL];
+        }
+
+        public void setPitch(float f)
+        {
+            this.angle[PITCH_CHANNEL] = f;
+        }
+
+        public float getYaw()
+        {
+            return angle[YAW_CHANNEL];
+        }
+
+        public void setYaw(float f)
+        {
+            this.angle[YAW_CHANNEL] = f;
+        }
+
+        public void setAngle(float angle, int position)
+        {
+            if (position < 3)
+                this.angle[position] = angle;
+        }
+
+        public void setFrameAngle(float frameAngle, int position)
+        {
+            if (position < 3)
+                this.frameAngle[position] = frameAngle;
+        }
+
+        public float[] getFrameAngle()
+        {
+            return frameAngle;
+        }
+
+        public float[] getRc_angle()
+        {
+            return rc_angle;
+        }
+
+        public void setRc_angle(float rc_angle, int position)
+        {
+            if (position < 3)
+                this.rc_angle[position] = rc_angle;
+        }
+
+        public int getCycleTime()
+        {
+            return cycleTime;
+        }
+
+        public void setCycleTime(int cycleTime)
+        {
+            this.cycleTime = cycleTime;
+        }
+
+        public int getI2cErrorCount()
+        {
+            return i2cErrorCount;
+        }
+
+        public void setI2cErrorCount(int i2cErrorCount)
+        {
+            this.i2cErrorCount = i2cErrorCount;
+        }
+
+        public int getErrorCode()
+        {
+            return errorCode;
+        }
+
+        public void setErrorCode(int errorCode)
+        {
+            this.errorCode = errorCode;
+        }
+
+        public float getBatteryValue()
+        {
+            return batteryValue;
+        }
+
+        public void setBatteryValue(int val)
+        {
+            if (val > 0)
+                this.batteryValue = val / 100;
+        }
+
+        public bool IsPowered()
+        {
+            return isPowered;
+        }
+
+        public void setPowered(bool isPowered)
+        {
+            this.isPowered = isPowered;
+        }
+
+        public int getCurrentProfile()
+        {
+
+            return currentProfile;
+        }
+
+        public void setCurrentProfile(int profile)
+        {
+
+            if (profile >= 0 && profile < 5)
+            {
+
+                this.currentProfile = profile;
+            }
+        }
+
+        public int getCurrentIMU()
+        {
+            return currentIMU;
+        }
+
+        public void setCurrentIMU(int imu)
+        {
+            this.currentIMU = imu;
+        }
+
+        public int[] getPower()
+        {
+            return power;
+        }
+
+        public void setPower(int power, int position)
+        {
+            if (position < 3)
+                this.power[position] = power;
+        }
+
+    }
 }
