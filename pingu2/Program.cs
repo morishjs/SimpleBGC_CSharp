@@ -67,6 +67,56 @@ namespace SerialProtocol
 
 
 
+        static void Main(string[] args)
+        {
+            SerialProtocol p = new SerialProtocol();
+            ControlCommandStructure cCmd = new ControlCommandStructure();
+            RealtimeDataStructure rData = new RealtimeDataStructure();
+
+            cCmd.setMode(MODE_ANGLE);
+            cCmd.setAnglePitch(30);
+            cCmd.setAngleRoll(30);
+            cCmd.setAngleYaw(30);
+
+            cCmd.setSpeedPitch(30);
+            cCmd.setSpeedRoll(30);
+            cCmd.setSpeedYaw(30);
+
+
+            byte[] byteRead = new byte[100];
+            byte[] byteRead2 = new byte[100];
+            //port.Write(p.byteArray, 0, 18);
+
+
+
+            if (sendCommand(CMD_CONTROL, cCmd.getControlStructure()))
+            {
+                Console.WriteLine("send a message sucessfully");
+                port.Read(byteRead, 0, 100);
+            }
+
+            else
+            {
+                Console.WriteLine("Can't send command a message");
+                return;
+            }
+
+            if (sendCommand(CMD_REALTIME_DATA))
+            {
+                System.Threading.Thread.Sleep(30);
+                port.Read(byteRead2, 0, 100);
+                rData = parseRealTimeData(byteRead2);
+
+                float[] angle = rData.getAngle();
+
+                foreach (byte e in byteRead2)
+                {
+                    Console.WriteLine(e);
+                }
+            }
+
+        }
+
         /*      
          * Reads the next word in the data array
          * 
@@ -165,52 +215,6 @@ namespace SerialProtocol
 
 
 
-        static void Main(string[] args)
-        {
-            SerialProtocol p = new SerialProtocol();
-            ControlCommandStructure cCmd = new ControlCommandStructure();
-            RealtimeDataStructure rData = new RealtimeDataStructure();
-
-            cCmd.setMode(MODE_ANGLE);
-            cCmd.setAnglePitch(30);
-            cCmd.setAngleRoll(30);
-            cCmd.setAngleYaw(30);
-
-            cCmd.setSpeedPitch(30);
-            cCmd.setSpeedRoll(30);
-            cCmd.setSpeedYaw(30);
-
-
-            byte[] byteRead = new byte[100];
-
-            //port.Write(p.byteArray, 0, 18);
-
-            /*
-               
-               if (sendCommand(CMD_CONTROL,cCmd.getControlStructure()))
-               {
-                   Console.WriteLine("send a message sucessfully");
-                   port.Read(byteRead, 0, 100);
-               }
-
-               else
-               {
-                   Console.WriteLine("Can't send command a message");
-                   return;
-               }*/
-            if(sendCommand(CMD_REALTIME_DATA))
-            {
-                port.Read(byteRead, 0, 100);
-                rData = parseRealTimeData(byteRead);
-                float bat = rData.getBatteryValue();
-                float[] angle = rData.getAngle();
-                foreach(float e in angle)
-                {                    
-                    Console.WriteLine(bat);
-                }
-            }
-
-        }
 
         public byte[] getByteArray()
         {
