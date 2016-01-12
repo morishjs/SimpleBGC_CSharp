@@ -70,10 +70,10 @@ namespace SerialProtocol
         {
 
             byte[] byteRead = new byte[100];
-
+            RealtimeDataStructure rData = rtD;
             cCmd.setMode(MODE_ANGLE);
-            cCmd.setAnglePitch(roll);
-            cCmd.setAngleRoll(pitch);
+            cCmd.setAnglePitch(pitch);
+            cCmd.setAngleRoll(roll);
             cCmd.setAngleYaw(yaw);
 
             //default 30 
@@ -83,8 +83,7 @@ namespace SerialProtocol
 
             if (sendCommand(CMD_CONTROL, cCmd.getControlStructure()))
             {
-                Console.WriteLine("Done!");
-                port.Read(byteRead, 0, 100);
+                Console.WriteLine("Done!");               
             }
 
             else
@@ -92,14 +91,14 @@ namespace SerialProtocol
                 Console.WriteLine("Can't send command a message");
                 return;
             }
-
-
+            
         }
+
         static void Main(string[] args)
         {
             SerialProtocol p = new SerialProtocol();
             ControlCommandStructure cCmd = new ControlCommandStructure();
-            RealtimeDataStructure rData = new RealtimeDataStructure();
+            RealtimeDataStructure rData = rtD;
             String select;
             byte[] byteRead = new byte[100];
             int roll, pitch, yaw;
@@ -113,37 +112,40 @@ namespace SerialProtocol
                 switch (select=Console.ReadLine())
                 {
                     case "1":
-                    if (sendCommand(CMD_REALTIME_DATA))
-                    {
-                        System.Threading.Thread.Sleep(30);
-                        port.Read(byteRead, 0, 100);
-                        rData = parseRealTimeData(byteRead);
+                        if (sendCommand(CMD_REALTIME_DATA))
+                        {
+                            System.Threading.Thread.Sleep(30);                            
+                                                        
+                            port.Read(byteRead, 0, 100);                            
+                            rData = parseRealTimeData(byteRead);
 
-                        float[] angle = rData.getAngle();
-                        Console.WriteLine("Roll: "+rData.getRoll());
-                        Console.WriteLine("Yaw: "+rData.getYaw());
-                        Console.WriteLine("Pitch: "+rData.getPitch());                        
-                    }
+                            float[] angle = rData.getAngle();
 
+                            Console.WriteLine("Roll: "+rData.getRoll());
+                            Console.WriteLine("Pitch: " + rData.getPitch());
+                            Console.WriteLine("Yaw: "+rData.getYaw());
+                                       
+                        }
                     break;
+
                     case "2":
                     Console.WriteLine("Give the angle value.");
                     roll = Convert.ToInt32(Console.ReadLine());
                     pitch = Convert.ToInt32(Console.ReadLine());
                     yaw = Convert.ToInt32(Console.ReadLine());
                     setAngle(roll, pitch, yaw, ref cCmd);
-                        
                     break;
 
                     case "3":
                         return;
-                        
+                        break;
+
+                    
+
 
                 }
             }
-
-
-
+            
 
         }
 
@@ -577,6 +579,7 @@ namespace SerialProtocol
             angleYaw = a;
         }
     }
+
     public class RealtimeDataStructure
     {
 
