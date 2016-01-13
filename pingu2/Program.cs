@@ -43,7 +43,7 @@ namespace SerialProtocol
         protected static byte CMD_SELECT_IMU_3 = 24;
         protected static byte CMD_ERROR = (byte)255;
         protected static byte MAGIC_BYTE = Convert.ToByte('>');
-        protected static bool BOARD_VERSION_3 = false;
+        protected static bool BOARD_VERSION_3 = true;
         protected static float ANGLE_TO_DEGREE = 0.02197266F;
 
         public static int MODE_NO_CONTROL = 0;
@@ -83,9 +83,19 @@ namespace SerialProtocol
 
             if (sendCommand(CMD_CONTROL, cCmd.getControlStructure()))
             {
-                Console.WriteLine("Done!");               
-            }
+                Console.WriteLine("Done!");
+                //호출을 한번 더 해줘야 함. 이유: 나중에 각도 읽어올때 쓰레기값 보냄
+                if (sendCommand(CMD_REALTIME_DATA))
+                {
+                    System.Threading.Thread.Sleep(30);
 
+                    port.Read(byteRead, 0, 100);
+                    rData = parseRealTimeData(byteRead);
+
+                    float[] angle = rData.getAngle();
+
+                }
+            }
             else
             {
                 Console.WriteLine("Can't send command a message");
@@ -93,6 +103,32 @@ namespace SerialProtocol
             }
             
         }
+
+        public static float[] getAngle()
+        {
+            byte[] byteRead = new byte[100];
+            RealtimeDataStructure rData = rtD;
+
+            if (sendCommand(CMD_REALTIME_DATA))
+            {
+                System.Threading.Thread.Sleep(30);
+
+                port.Read(byteRead, 0, 100);
+                rData = parseRealTimeData(byteRead);
+
+                float[] angle = rData.getAngle();
+
+                Console.WriteLine("Roll: " + rData.getRoll());
+                Console.WriteLine("Pitch: " + rData.getPitch());
+                Console.WriteLine("Yaw: " + rData.getYaw());
+                return angle;
+            }
+            else return new float[0];
+            
+        }
+
+
+
 
         static void Main(string[] args)
         {
@@ -112,21 +148,8 @@ namespace SerialProtocol
                 switch (select=Console.ReadLine())
                 {
                     case "1":
-                        if (sendCommand(CMD_REALTIME_DATA))
-                        {
-                            System.Threading.Thread.Sleep(30);                            
-                                                        
-                            port.Read(byteRead, 0, 100);                            
-                            rData = parseRealTimeData(byteRead);
-
-                            float[] angle = rData.getAngle();
-
-                            Console.WriteLine("Roll: "+rData.getRoll());
-                            Console.WriteLine("Pitch: " + rData.getPitch());
-                            Console.WriteLine("Yaw: "+rData.getYaw());
-                                       
-                        }
-                    break;
+                        getAngle();
+                        break;
 
                     case "2":
                     Console.WriteLine("Give the angle value.");
@@ -160,6 +183,12 @@ namespace SerialProtocol
         {
             if (data.Length >= readPosition + 2)
             {
+                if(data[(readPosition)] > 200)
+                {
+                    data[(readPosition)] = 0;
+                    if (data[(readPosition + 1)] > 200)
+                        data[(readPosition + 1)] = 0;
+                }
                 return (data[(readPosition++)] & 0xFF)
                         + (data[(readPosition++)] << 8);
             }
@@ -376,6 +405,7 @@ namespace SerialProtocol
 
                 for (int i = 0; i < 3; i++)
                 {
+                    
                     getRealtimeDataStructure().setAngle(
                             (readWord(data) * ANGLE_TO_DEGREE), i);
 
